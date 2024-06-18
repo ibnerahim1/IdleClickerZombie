@@ -7,9 +7,10 @@ public enum eCharacterState
 
 public enum ePoolType
 {
-    Customer,
-    Cash,
-    Item
+    Zombie1,
+    Zombie2,
+    Zombie3,
+    Zombie4
 }
 
 public enum eSFXType

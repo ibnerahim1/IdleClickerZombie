@@ -7,7 +7,8 @@ using UnityEngine.AI;
 
 public class ZombieManager : Utils.Singleton<ZombieManager>
 {
-    [SerializeField] List<Zombie> Pool = new List<Zombie>();
+    public ePoolType[] ZombieTypes;
+    PoolManager poolManager => PoolManager.Instance;
     public float SpawnDelay;
 
     private void Start()
@@ -16,19 +17,11 @@ public class ZombieManager : Utils.Singleton<ZombieManager>
     }
     public void SpawnZombie()
     {
-        if (Pool.Count > 0)
+        GameObject zombie = poolManager.Dequeue(ZombieTypes[Random.Range(0, ZombieTypes.Length)], transform.position, transform.rotation, transform);
+        this.SkipFrame(() =>
         {
-            Zombie zombie = Pool[0];
-            Pool.Remove(zombie);
-            zombie.Initialize(ZombieData.GetZombieData(Random.Range(1, 5)));
-            zombie.transform.position = transform.position;
-            zombie.transform.rotation = transform.rotation;
+            zombie.GetComponent<NavMeshAgent>().nextPosition = zombie.transform.position;
             zombie.GetComponent<NavMeshAgent>().SetDestination(Vector3.zero);
-        }
-    }
-    public void Kill(Zombie zombie)
-    {
-        zombie.Off();
-        Pool.Add(zombie);
+        });
     }
 }

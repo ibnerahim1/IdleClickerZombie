@@ -2,43 +2,59 @@ using UnityEngine;
 using UniRx;
 using UniRx.Triggers;
 using Utils.Extensions;
+using Utils.Interfaces;
+using DG.Tweening;
+using UnityEngine.AI;
+using TMPro;
 
-public class Zombie : MonoBehaviour
+public class Zombie : MonoBehaviour, IPoolable
 {
-    public ZombieData zombieData;
-    AnimationInstancing.AnimationInstancing animInstancing;
+    public int Index;
+    public float MaxHealth;
+    public float Health;
+    public int Coins;
+    public float Speed;
+    [SerializeField] Animator animator;
+    [SerializeField] ePoolType poolType;
+    float scale;
+    Color color;
 
-    public void Initialize(ZombieData data)
+    private void Awake()
     {
-        zombieData = data;
-        GetComponentInChildren<SkinnedMeshRenderer>().material.color = data.color;
-        animInstancing = GetComponent<AnimationInstancing.AnimationInstancing>();
-        // animInstancing.InitializeAnimation();
-        this.On();
-        animInstancing.PlayAnimation("1 Run");
+        scale = transform.localScale.x;
+        color = transform.FindChildByName<SkinnedMeshRenderer>("Body").material.color;
+    }
+    public void OnObjectDespawn()
+    {
+        GetComponent<NavMeshAgent>().enabled = true;
     }
 
-    void Start()
+    public void OnObjectSpawn()
     {
-        this.OnDestroyAsObservable()
+        transform.FindChildByName<SkinnedMeshRenderer>("Body").material.color = color;
+        transform.localScale = Vector3.one * scale;
+        animator.Play("Run");
+        Health = MaxHealth;
+
+        this.UpdateAsObservable()
+            .Where(_ => Input.GetMouseButtonDown(0))
+            .TakeUntil(this.ObserveEveryValueChanged(x => x.Health).Where(h => h <= 0))
             .Subscribe(_ =>
             {
-                SaveLoadManager.Instance.GameData.Coins.Value += zombieData.Coins;
-                PlayDeathEffect();
-            });
-        this.UpdateAsObservable()
-        .Where(_ => Input.GetMouseButtonDown(0))
-        .Subscribe(_ => PlayDeathEffect())
-        .AddTo(this);
+                Health -= 0.2f;
+                Debug.Log("Health: " + Health);
+                if (Health <= 0)
+                    ZombieDead();
+            })
+            .AddTo(this);
     }
 
-    void PlayDeathEffect()
+    void ZombieDead()
     {
-        this.Off();
-        GetComponentInChildren<SkinnedMeshRenderer>().material.color = Color.grey;
-        this.On();
-        animInstancing.PlayAnimation("2 Die");
-        // Add visual and audio effects for zombie death
-        this.DelayedAction(() => ZombieManager.Instance.Kill(this), 2);
+        transform.FindChildByName<SkinnedMeshRenderer>("Body").material.color = Color.grey;
+        animator.SetTrigger("Die");
+        SaveLoadManager.Instance.GameData.Coins.Value += Coins;
+        transform.DOScale(Vector3.zero, 0.5f).SetDelay(3).SetEase(Ease.InSine).OnComplete(() => PoolManager.Instance.Enqueue(poolType, gameObject));
+        GetComponent<NavMeshAgent>().enabled = false;
     }
 }
